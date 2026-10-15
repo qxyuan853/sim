@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/core/idempotency/service', () => idempotencyServiceMock)
 
 import {
+  assertNoClientCheckoutMetadata,
   claimCheckoutAdmission,
   releaseCheckoutAdmission,
   resolveCheckoutReferenceId,
@@ -29,6 +30,30 @@ describe('checkout admission', () => {
       resolveCheckoutReferenceId({ customerType: 'organization' }, 'user-1', 'org-active')
     ).toBe('org-active')
     expect(resolveCheckoutReferenceId({}, 'user-1', 'org-active')).toBe('user-1')
+  })
+
+  it('rejects client-supplied subscription metadata on checkout', () => {
+    const teamCheckout = {
+      plan: 'team_6000',
+      referenceId: 'org-1',
+      seats: 1,
+      successUrl: 'http://localhost:3000/workspace',
+      cancelUrl: 'http://localhost:3000/workspace',
+    }
+    expect(() => assertNoClientCheckoutMetadata(teamCheckout)).not.toThrow()
+    expect(() =>
+      assertNoClientCheckoutMetadata({ ...teamCheckout, metadata: undefined })
+    ).not.toThrow()
+    expect(() => assertNoClientCheckoutMetadata(undefined)).not.toThrow()
+    expect(() =>
+      assertNoClientCheckoutMetadata({
+        ...teamCheckout,
+        metadata: { plan: 'enterprise', seats: '200' },
+      })
+    ).toThrow(/managed by the server/)
+    expect(() => assertNoClientCheckoutMetadata({ ...teamCheckout, metadata: {} })).toThrow(
+      /managed by the server/
+    )
   })
 
   it('admits only one overlapping checkout for a billing reference', async () => {

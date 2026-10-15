@@ -81,6 +81,7 @@ import {
   isPersonalCheckoutRequest,
 } from '@/lib/billing/authorization'
 import {
+  assertNoClientCheckoutMetadata,
   type CheckoutAdmissionClaim,
   claimCheckoutAdmission,
   releaseCheckoutAdmission,
@@ -1156,6 +1157,7 @@ export const auth = betterAuth({
          * and a personal plan for someone already covered by an organization.
          */
         if (isBillingEnabled && ctx.path === '/subscription/upgrade') {
+          assertNoClientCheckoutMetadata(ctx.body)
           const session = await getSessionFromCtx(ctx)
           const sessionUserId = session?.user?.id
           if (sessionUserId) {

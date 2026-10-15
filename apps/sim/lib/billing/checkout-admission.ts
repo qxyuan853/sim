@@ -1,5 +1,6 @@
 import { createLogger } from '@sim/logger'
 import { getErrorMessage } from '@sim/utils/errors'
+import { toRecord } from '@sim/utils/object'
 import { APIError } from 'better-auth/api'
 import { type AtomicClaimResult, IdempotencyService } from '@/lib/core/idempotency/service'
 
@@ -38,6 +39,24 @@ export function resolveCheckoutReferenceId(
   }
   if (body.customerType === 'organization') return activeOrganizationId
   return sessionUserId
+}
+
+/**
+ * Rejects a `/subscription/upgrade` request that carries its own `metadata`.
+ *
+ * Better Auth's Stripe plugin copies a client-supplied `metadata` object into
+ * the Checkout Session, the subscription and a newly created customer. Sim's
+ * webhooks read that subscription metadata as server-owned:
+ * `metadata.plan === 'enterprise'` routes into the manual Enterprise
+ * reconciliation, which takes the seats and usage limit from it. Sim's own
+ * client never sends `metadata`.
+ */
+export function assertNoClientCheckoutMetadata(body: unknown): void {
+  if (toRecord(body).metadata === undefined) return
+  logger.warn('Blocking checkout with client-supplied subscription metadata')
+  throw new APIError('BAD_REQUEST', {
+    message: 'Subscription metadata is managed by the server and cannot be set by the client.',
+  })
 }
 
 /**
